@@ -1,70 +1,122 @@
---[[
-	Public Mod Menu
-	This script creates a custom UI menu for Roblox that is visible and
-	usable by all players.
-	This version is based on a new design provided by the user, featuring
-	a clean, modern aesthetic with a different layout.
-	The menu retains its key functionality, including animations and a
-	toggle keybind.
-]]
+-- quesadilla.dll v1 - Admin Mod Menu Script
 
--- Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Drawing = loadstring(game:HttpGet("https://raw.githubusercontent.com/wally-rblx/Drawing/main/Drawing.lua"))()
+
 local LocalPlayer = Players.LocalPlayer
 
--- Main UI setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "IntellectUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+local BoxESPEnabled = false
+local TracerESPEnabled = false
+local NameTagESPEnabled = false
+local SkeletonESPEnabled = false
+local HealthESPEnabled = false
+local DistanceESPEnabled = false
+local TeamColorESPEnabled = false
 
--- The main container frame for the entire menu.
+local ESPBoxes = {}
+local ESPTracers = {}
+local ESPNames = {}
+local ESPHealths = {}
+local ESPDistances = {}
+local ESPSkeletons = {}
+
+local FlyEnabled = false
+local GodModeEnabled = false
+
+local flySpeed = 50
+local isFlying = false
+local isNoclipping = false
+local flyConnection = nil
+local noclipConnection = nil
+
+-- NEW FEATURE: Active Mods Display
+local ActiveModsDisplayEnabled = true
+
+-- ========== UI Setup ==========
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "QuesadillaMenu"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
 MainFrame.Size = UDim2.new(0, 500, 0, 450)
 MainFrame.Position = UDim2.new(0.5, -250, 0.5, -225)
-MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
 MainFrame.BorderSizePixel = 0
-MainFrame.Parent = ScreenGui
 MainFrame.Active = true
 MainFrame.Draggable = true
-MainFrame.Visible = true
+MainFrame.Parent = ScreenGui
 
--- Add a keybind to toggle the UI.
-UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-	if input.KeyCode == Enum.KeyCode.Tab and not gameProcessedEvent then
-		MainFrame.Visible = not MainFrame.Visible
-	end
-end)
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0,8)
+UICorner.Parent = MainFrame
 
--- Add rounded corners to the main frame
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 8)
-corner.Parent = MainFrame
-
--- Top bar for title and tabs
+-- TopBar (title + tabs container)
 local TopBar = Instance.new("Frame")
 TopBar.Name = "TopBar"
-TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.Size = UDim2.new(1,0,0,40)
 TopBar.BackgroundTransparency = 1
 TopBar.Parent = MainFrame
 
--- Title label
+-- Title label with gradient animation
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
+Title.Size = UDim2.new(1,0,1,0)
+Title.Position = UDim2.new(0,10,0,0)
 Title.BackgroundTransparency = 1
-Title.Text = "quesadillas menu"
+Title.Text = "quesadilla.dll v1"
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 18
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 20
 Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.TextColor3 = Color3.fromRGB(124,58,237)
 Title.Parent = TopBar
 
--- Main content area, below the title bar.
+-- Tab Buttons Container
+local TabsFrame = Instance.new("Frame")
+TabsFrame.Size = UDim2.new(1, -20, 0, 40)
+TabsFrame.Position = UDim2.new(0, 10, 0, 0)
+TabsFrame.BackgroundTransparency = 1
+TabsFrame.Parent = TopBar
+
+local TabNames = {"Vision", "Player", "World", "Settings"}
+local Tabs = {}
+local SelectedTab = nil
+
+local function createTabButton(name, index)
+    local btn = Instance.new("TextButton")
+    btn.Name = name.."Tab"
+    btn.Text = name
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+    btn.Size = UDim2.new(0, 100, 1, 0)
+    btn.Position = UDim2.new(0, (index-1)*110, 0, 0)
+    btn.TextColor3 = Color3.fromRGB(200,200,200)
+    btn.Parent = TabsFrame
+
+    btn.MouseButton1Click:Connect(function()
+        for _, otherBtn in pairs(Tabs) do
+            otherBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
+            otherBtn.TextColor3 = Color3.fromRGB(200,200,200)
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(124,58,237)
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        SelectedTab = name
+        showTabContent(name)
+    end)
+
+    return btn
+end
+
+for i, name in ipairs(TabNames) do
+    Tabs[name] = createTabButton(name, i)
+end
+
+-- Content Frame
 local ContentFrame = Instance.new("Frame")
 ContentFrame.Name = "ContentFrame"
 ContentFrame.Size = UDim2.new(1, -20, 1, -50)
@@ -72,202 +124,855 @@ ContentFrame.Position = UDim2.new(0, 10, 0, 45)
 ContentFrame.BackgroundTransparency = 1
 ContentFrame.Parent = MainFrame
 
-local UIGridLayout = Instance.new("UIGridLayout")
-UIGridLayout.CellSize = UDim2.new(0.5, -5, 1, 0)
-UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 0)
-UIGridLayout.FillDirection = Enum.FillDirection.Horizontal
-UIGridLayout.Parent = ContentFrame
+-- Sections per tab container (only one visible at a time)
+local Sections = {}
 
-local LeftPanel = Instance.new("Frame")
-LeftPanel.Name = "LeftPanel"
-LeftPanel.Size = UDim2.new(0.5, -5, 1, 0)
-LeftPanel.BackgroundTransparency = 1
-LeftPanel.Parent = ContentFrame
+local function createTabContent(name)
+    local frame = Instance.new("ScrollingFrame")
+    frame.Name = name.."Content"
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.ScrollBarThickness = 6
+    frame.Visible = false
+    frame.Parent = ContentFrame
 
-local RightPanel = Instance.new("Frame")
-RightPanel.Name = "RightPanel"
-RightPanel.Size = UDim2.new(0.5, -5, 1, 0)
-RightPanel.BackgroundTransparency = 1
-RightPanel.Parent = ContentFrame
+    local uiList = Instance.new("UIListLayout")
+    uiList.Padding = UDim.new(0,10)
+    uiList.Parent = frame
 
--- Add UIListLayouts to the panels to automatically organize content
-local listLayoutLeft = Instance.new("UIListLayout")
-listLayoutLeft.Name = "ListLayoutLeft"
-listLayoutLeft.FillDirection = Enum.FillDirection.Vertical
-listLayoutLeft.Padding = UDim.new(0, 10)
-listLayoutLeft.Parent = LeftPanel
+    Sections[name] = frame
+    return frame
+end
 
-local listLayoutRight = Instance.new("UIListLayout")
-listLayoutRight.Name = "ListLayoutRight"
-listLayoutRight.FillDirection = Enum.FillDirection.Vertical
-listLayoutRight.Padding = UDim.new(0, 10)
-listLayoutRight.Parent = RightPanel
+for _, tab in ipairs(TabNames) do
+    createTabContent(tab)
+end
 
--- Function to create a section
+-- Helper function to create section headers
 local function createSection(parent, titleText)
-	local Section = Instance.new("Frame")
-	Section.Size = UDim2.new(1, 0, 0, 100)
-	Section.BackgroundTransparency = 1
-	Section.Parent = parent
+    local section = Instance.new("Frame")
+    section.Size = UDim2.new(1,0,0,90)
+    section.BackgroundTransparency = 1
+    section.Parent = parent
 
-	local TitleLabel = Instance.new("TextLabel")
-	TitleLabel.Size = UDim2.new(1, 0, 0, 20)
-	TitleLabel.BackgroundTransparency = 1
-	TitleLabel.Text = titleText
-	TitleLabel.Font = Enum.Font.GothamBold
-	TitleLabel.TextSize = 14
-	TitleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	TitleLabel.Parent = Section
+    local title = Instance.new("TextLabel")
+    title.Text = titleText
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextColor3 = Color3.fromRGB(180,180,180)
+    title.BackgroundTransparency = 1
+    title.Size = UDim2.new(1,0,0,20)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = section
 
-	local listLayout = Instance.new("UIListLayout")
-	listLayout.FillDirection = Enum.FillDirection.Vertical
-	listLayout.Padding = UDim.new(0, 5)
-	listLayout.Parent = Section
-
-	return Section
+    return section
 end
 
--- Function to create a checkbox with animations
-local function createCheckbox(parent, labelText)
-	local Button = Instance.new("TextButton")
-	Button.Size = UDim2.new(1, 0, 0, 20)
-	Button.BackgroundTransparency = 1
-	Button.Text = ""
-	Button.Parent = parent
+-- Checkbox creator
+local function createCheckbox(parent, labelText, default, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1,0,0,30)
+    btn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    btn.BorderSizePixel = 0
+    btn.AutoButtonColor = false
+    btn.Parent = parent
 
-	local Box = Instance.new("Frame")
-	Box.Size = UDim2.new(0, 16, 0, 16)
-	Box.Position = UDim2.new(0, 0, 0.5, -8)
-	Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	Box.BorderColor3 = Color3.fromRGB(70, 70, 70)
-	Box.Parent = Button
-	
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = Box
+    local uicorner = Instance.new("UICorner")
+    uicorner.Parent = btn
 
-	local Check = Instance.new("Frame")
-	Check.Size = UDim2.new(1, -4, 1, -4)
-	Check.Position = UDim2.new(0, 2, 0, 2)
-	Check.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	Check.Visible = false
-	Check.Parent = Box
-	
-	local checkCorner = Instance.new("UICorner")
-	checkCorner.CornerRadius = UDim.new(0, 2)
-	checkCorner.Parent = Check
+    local box = Instance.new("Frame")
+    box.Size = UDim2.new(0,20,0,20)
+    box.Position = UDim2.new(0,10,0.5,-10)
+    box.BackgroundColor3 = Color3.fromRGB(25,25,25)
+    box.Parent = btn
 
-	local Label = Instance.new("TextLabel")
-	Label.Size = UDim2.new(1, -24, 1, 0)
-	Label.Position = UDim2.new(0, 24, 0, 0)
-	Label.BackgroundTransparency = 1
-	Label.Text = labelText
-	Label.Font = Enum.Font.Gotham
-	Label.TextSize = 14
-	Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-	Label.TextXAlignment = Enum.TextXAlignment.Left
-	Label.Parent = Button
+    local check = Instance.new("Frame")
+    check.Size = UDim2.new(1, -6, 1, -6)
+    check.Position = UDim2.new(0,3,0,3)
+    check.BackgroundColor3 = Color3.fromRGB(124,58,237)
+    check.Visible = default
+    check.Parent = box
 
-	Button.MouseButton1Click:Connect(function()
-		Check.Visible = not Check.Visible
-	end)
+    local label = Instance.new("TextLabel")
+    label.Text = labelText
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.TextColor3 = Color3.fromRGB(220,220,220)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0,40,0,0)
+    label.Size = UDim2.new(1, -40, 1, 0)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        check.Visible = not check.Visible
+        callback(check.Visible)
+    end)
+
+    return btn
 end
 
--- Function to create a slider with animations
-local function createSlider(parent, labelText, min, max, default)
-	local Container = Instance.new("Frame")
-	Container.Size = UDim2.new(1, 0, 0, 40)
-	Container.BackgroundTransparency = 1
-	Container.Parent = parent
+-- Slider creator
+local function createSlider(parent, labelText, min, max, default, callback)
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, 0, 0, 50)
+    container.BackgroundTransparency = 1
+    container.Parent = parent
 
-	local Label = Instance.new("TextLabel")
-	Label.Size = UDim2.new(1, 0, 0, 20)
-	Label.BackgroundTransparency = 1
-	Label.Text = labelText
-	Label.Font = Enum.Font.Gotham
-	Label.TextSize = 14
-	Label.TextColor3 = Color3.fromRGB(200, 200, 200)
-	Label.TextXAlignment = Enum.TextXAlignment.Left
-	Label.Parent = Container
+    local label = Instance.new("TextLabel")
+    label.Text = labelText
+    label.Font = Enum.Font.Gotham
+    label.TextSize = 16
+    label.TextColor3 = Color3.fromRGB(220,220,220)
+    label.BackgroundTransparency = 1
+    label.Position = UDim2.new(0, 0, 0, 0)
+    label.Size = UDim2.new(1, 0, 0, 20)
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = container
 
-	local SliderBar = Instance.new("Frame")
-	SliderBar.Size = UDim2.new(1, 0, 0, 6)
-	SliderBar.Position = UDim2.new(0, 0, 0, 24)
-	SliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	SliderBar.BorderSizePixel = 0
-	SliderBar.Parent = Container
+    local sliderBar = Instance.new("Frame")
+    sliderBar.Size = UDim2.new(1, 0, 0, 10)
+    sliderBar.Position = UDim2.new(0, 0, 0, 30)
+    sliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    sliderBar.BorderSizePixel = 0
+    sliderBar.Parent = container
 
-	local Fill = Instance.new("Frame")
-	Fill.Name = "Fill"
-	Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-	Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	Fill.BorderSizePixel = 0
-	Fill.Parent = SliderBar
-	
-	local Handle = Instance.new("Frame")
-	Handle.Name = "Handle"
-	Handle.Size = UDim2.new(0, 10, 0, 10)
-	Handle.Position = UDim2.new((default - min) / (max - min), -5, 0.5, -5)
-	Handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	Handle.BorderSizePixel = 0
-	Handle.Parent = SliderBar
+    local fill = Instance.new("Frame")
+    fill.Name = "Fill"
+    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(124, 58, 237)
+    fill.BorderSizePixel = 0
+    fill.Parent = sliderBar
 
-	local isDragging = false
-	local function updateSlider(input)
-		local x = input.Position.X - SliderBar.AbsolutePosition.X
-		local width = SliderBar.AbsoluteSize.X
-		local percentage = math.clamp(x / width, 0, 1)
+    local handle = Instance.new("Frame")
+    handle.Name = "Handle"
+    handle.Size = UDim2.new(0, 16, 0, 16)
+    handle.Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8)
+    handle.BackgroundColor3 = Color3.fromRGB(124, 58, 237)
+    handle.BorderSizePixel = 0
+    handle.Parent = sliderBar
 
-		local currentValue = min + percentage * (max - min)
-		
-		local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local dragging = false
 
-		TweenService:Create(Fill, tweenInfo, {Size = UDim2.new(percentage, 0, 1, 0)}):Play()
-		TweenService:Create(Handle, tweenInfo, {Position = UDim2.new(percentage, -5, 0.5, -5)}):Play()
+    local function updateSlider(inputPos)
+        local relativeX = math.clamp(inputPos.X - sliderBar.AbsolutePosition.X, 0, sliderBar.AbsoluteSize.X)
+        local percent = relativeX / sliderBar.AbsoluteSize.X
+        local value = min + percent * (max - min)
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        handle.Position = UDim2.new(percent, -8, 0.5, -8)
+        callback(value)
+    end
 
-		-- The logic to use the new value would go here
-		print(labelText .. " value is now " .. tostring(math.floor(currentValue)))
-	end
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+        end
+    end)
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    sliderBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input.Position)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input.Position)
+        end
+    end)
 
-	Handle.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = true
-			updateSlider(input)
-		end
-	end)
+    callback(default)
 
-	SliderBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = true
-			updateSlider(input)
-		end
-	end)
-
-	UserInputService.InputChanged:Connect(function(input)
-		if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			updateSlider(input)
-		end
-	end)
-
-	UserInputService.InputEnded:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			isDragging = false
-		end
-	end)
+    return container
 end
 
--- Left Panel
-local OversyncSection = createSection(LeftPanel, "Oversyncing")
-createCheckbox(OversyncSection, "Players Oversync")
-createCheckbox(OversyncSection, "Players Rotation")
+-- ========== Player Info Overlay ==========
 
-local AutoBranchSection = createSection(LeftPanel, "AutoBranch")
-createCheckbox(AutoBranchSection, "Auto Branch")
+local infoSettings = {
+    Username = true,
+    PlayerId = true,
+    DisplayName = false,
+    Team = false,
+}
 
--- Right Panel
-local SetsSection = createSection(RightPanel, "Sets")
-createSlider(SetsSection, "Wall Pull Power", 0, 10, 0)
-createSlider(SetsSection, "AutoBranch Speed", 0, 10, 1)
-createSlider(SetsSection, "AutoBranch Hand Distance", 0, 10, 1)
-createSlider(SetsSection, "AutoBranch Hand Smoothness", 0, 10, 1)
+local playerBillboards = {}
+
+local function createPlayerBillboard(player)
+    if not player.Character then return end
+    local head = player.Character:FindFirstChild("Head")
+    if not head then return end
+
+    if head:FindFirstChild("QuesadillaInfo") then
+        head.QuesadillaInfo:Destroy()
+    end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "QuesadillaInfo"
+    billboard.Adornee = head
+    billboard.Size = UDim2.new(0, 160, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = head
+
+    local label = Instance.new("TextLabel")
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextColor3 = Color3.new(1, 1, 1)
+    label.TextStrokeTransparency = 0.7
+    label.TextYAlignment = Enum.TextYAlignment.Top
+    label.Parent = billboard
+
+    local function updateText()
+        local lines = {}
+        if infoSettings.Username then
+            table.insert(lines, "User: "..player.Name)
+        end
+        if infoSettings.PlayerId then
+            table.insert(lines, "ID: "..player.UserId)
+        end
+        if infoSettings.DisplayName and player.DisplayName then
+            table.insert(lines, "Display: "..player.DisplayName)
+        end
+        if infoSettings.Team and player.Team and player.Team.Name then
+            table.insert(lines, "Team: "..player.Team.Name)
+        end
+        label.Text = table.concat(lines, "\n")
+    end
+
+    updateText()
+
+    playerBillboards[player] = label
+end
+
+local function refreshAllBillboards()
+    for _, player in pairs(Players:GetPlayers()) do
+        createPlayerBillboard(player)
+    end
+end
+
+local function clearAllBillboards()
+    for player, label in pairs(playerBillboards) do
+        if label and label.Parent then
+            label.Parent:Destroy()
+        end
+        playerBillboards[player] = nil
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        if infoSettings.PlayerInfoDisplayEnabled ~= false then
+            createPlayerBillboard(player)
+        end
+    end)
+end)
+
+for _, player in pairs(Players:GetPlayers()) do
+    player.CharacterAdded:Connect(function()
+        wait(1)
+        if infoSettings.PlayerInfoDisplayEnabled ~= false then
+            createPlayerBillboard(player)
+        end
+    end)
+end
+
+-- ========== Tab Content Building ==========
+
+local function clearContent(tabName)
+    local content = Sections[tabName]
+    if not content then return end
+    for _, child in pairs(content:GetChildren()) do
+        if not child:IsA("UIListLayout") then
+            child:Destroy()
+        end
+    end
+end
+
+local function printAction(name, value)
+    print("[quesadilla.dll] " .. name .. " set to: " .. tostring(value))
+end
+
+-- Build Vision tab
+local function buildVisionTab()
+    clearContent("Vision")
+    local visionTab = Sections.Vision
+
+    local espSection = createSection(visionTab, "ESP Features")
+    espSection.Parent = visionTab
+
+    createCheckbox(espSection, "Box ESP", BoxESPEnabled, function(val)
+        BoxESPEnabled = val
+    end)
+    createCheckbox(espSection, "Tracer Lines", TracerESPEnabled, function(val)
+        TracerESPEnabled = val
+    end)
+    createCheckbox(espSection, "Name Tag ESP", NameTagESPEnabled, function(val)
+        NameTagESPEnabled = val
+    end)
+    createCheckbox(espSection, "Skeleton ESP", SkeletonESPEnabled, function(val)
+        SkeletonESPEnabled = val
+    end)
+    createCheckbox(espSection, "Health ESP", HealthESPEnabled, function(val)
+        HealthESPEnabled = val
+    end)
+    createCheckbox(espSection, "Distance ESP", DistanceESPEnabled, function(val)
+        DistanceESPEnabled = val
+    end)
+    createCheckbox(espSection, "Team Color ESP", TeamColorESPEnabled, function(val)
+        TeamColorESPEnabled = val
+    end)
+    
+end
+
+-- Build Player tab
+local function buildPlayerTab()
+    clearContent("Player")
+    local playerTab = Sections.Player
+
+    local movementSection = createSection(playerTab, "Movement")
+    movementSection.Parent = playerTab
+
+    createSlider(movementSection, "Set Walkspeed", 8, 100, 16, function(val)
+        printAction("Walkspeed", math.floor(val))
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").WalkSpeed = val
+        end
+    end)
+
+    createSlider(movementSection, "Set Jumpheight", 10, 200, 50, function(val)
+        printAction("Jumpheight", math.floor(val))
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").JumpPower = val
+        end
+    end)
+
+    local abilitiesSection = createSection(playerTab, "Abilities")
+    abilitiesSection.Parent = playerTab
+
+    createCheckbox(abilitiesSection, "Fly / Noclip", false, function(val)
+        FlyEnabled = val
+        if FlyEnabled then
+            if LocalPlayer.Character then
+                LocalPlayer.Character:SetPrimaryPartCFrame(LocalPlayer.Character:GetPrimaryPartCFrame())
+            end
+        else
+            if LocalPlayer.Character then
+                LocalPlayer.Character.Humanoid.PlatformStand = false
+            end
+        end
+    end)
+
+    local infiniteJumpToggle = createCheckbox(abilitiesSection, "Infinite Jump", false, function(val)
+        printAction("Infinite Jump", val)
+        _G.InfiniteJumpEnabled = val
+    end)
+
+    if not _G.InfiniteJumpConn then
+        _G.InfiniteJumpConn = UserInputService.JumpRequest:Connect(function()
+            if _G.InfiniteJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    end
+
+    createCheckbox(abilitiesSection, "God Mode", false, function(val)
+        GodModeEnabled = val
+    end)
+
+    local teleportSection = createSection(playerTab, "Teleport")
+    teleportSection.Parent = playerTab
+
+    local teleportToPlayerBtn = Instance.new("TextButton")
+    teleportToPlayerBtn.Size = UDim2.new(1,0,0,30)
+    teleportToPlayerBtn.Text = "Teleport To Player (First Player)"
+    teleportToPlayerBtn.Font = Enum.Font.GothamBold
+    teleportToPlayerBtn.TextSize = 16
+    teleportToPlayerBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    teleportToPlayerBtn.BorderSizePixel = 0
+    teleportToPlayerBtn.Parent = teleportSection
+
+    teleportToPlayerBtn.MouseButton1Click:Connect(function()
+        local playersList = Players:GetPlayers()
+        local target = nil
+        for _, p in pairs(playersList) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                target = p
+                break
+            end
+        end
+        if target and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+            print("[quesadilla.dll] Teleported to "..target.Name)
+        else
+            print("[quesadilla.dll] No valid player found to teleport to.")
+        end
+    end)
+
+    local gravitySlider = createSlider(playerTab, "Gravity Control", 0, 196.2, 196.2, function(val)
+        printAction("Gravity", math.floor(val))
+        workspace.Gravity = val
+    end)
+end
+
+-- Build World tab
+local function buildWorldTab()
+    clearContent("World")
+    local worldTab = Sections.World
+
+    local timeSection = createSection(worldTab, "Time")
+    timeSection.Parent = worldTab
+
+    local timeSlider = createSlider(timeSection, "Set Time of Day", 0, 24, 12, function(val)
+        printAction("TimeOfDay", math.floor(val))
+        game.Lighting.TimeOfDay = string.format("%02d:00:00", math.floor(val))
+    end)
+
+    local lightingSection = createSection(worldTab, "Lighting")
+
+    local removeLightingToggle = createCheckbox(lightingSection, "Remove Lighting", false, function(val)
+        printAction("Remove Lighting", val)
+        if val then
+            game.Lighting.Brightness = 10
+            game.Lighting.Ambient = Color3.new(1,1,1)
+            game.Lighting.OutdoorAmbient = Color3.new(1,1,1)
+            game.Lighting.FogEnd = 100000
+        else
+            game.Lighting.Brightness = 2
+            game.Lighting.Ambient = Color3.fromRGB(128,128,128)
+            game.Lighting.OutdoorAmbient = Color3.fromRGB(128,128,128)
+            game.Lighting.FogEnd = 1000
+        end
+    end)
+    lightingSection.Parent = worldTab
+
+    local fullBrightToggle = createCheckbox(lightingSection, "Full Brightness", false, function(val)
+        printAction("Full Brightness", val)
+        if val then
+            game.Lighting.Brightness = 10
+        else
+            game.Lighting.Brightness = 2
+        end
+    end)
+    lightingSection.Parent = worldTab
+end
+
+-- Build Settings tab
+local function buildSettingsTab()
+    clearContent("Settings")
+    local settingsTab = Sections.Settings
+
+    -- NEW FEATURE: Active Mods Display Toggle
+    local activeModsDisplayToggle = createCheckbox(settingsTab, "Show Active Mods", ActiveModsDisplayEnabled, function(val)
+        ActiveModsDisplayEnabled = val
+        ActiveModsPanel.Visible = val
+    end)
+
+    local playerInfoToggle = createCheckbox(settingsTab, "Player Info Display", true, function(val)
+        printAction("Player Info Display", val)
+        infoSettings.PlayerInfoDisplayEnabled = val
+        if val then
+            refreshAllBillboards()
+        else
+            clearAllBillboards()
+        end
+    end)
+
+    local usernameToggle = createCheckbox(settingsTab, "Show Username", infoSettings.Username, function(val)
+        infoSettings.Username = val
+        refreshAllBillboards()
+    end)
+    local playerIDToggle = createCheckbox(settingsTab, "Show Player ID", infoSettings.PlayerId, function(val)
+        infoSettings.PlayerId = val
+        refreshAllBillboards()
+    end)
+    local displayNameToggle = createCheckbox(settingsTab, "Show Display Name", infoSettings.DisplayName, function(val)
+        infoSettings.DisplayName = val
+        refreshAllBillboards()
+    end)
+    local teamToggle = createCheckbox(settingsTab, "Show Team", infoSettings.Team, function(val)
+        infoSettings.Team = val
+        refreshAllBillboards()
+    end)
+
+    local gradientToggle = createCheckbox(settingsTab, "Toggle Gradient Animation", true, function(val)
+        printAction("Gradient Animation", val)
+        if val then
+            animateTitle()
+        else
+            if animTween then animTween:Cancel() end
+            Title.TextColor3 = Color3.fromRGB(255,255,255)
+        end
+    end)
+
+    local resetBtn = Instance.new("TextButton")
+    resetBtn.Size = UDim2.new(1,0,0,30)
+    resetBtn.Text = "Reset to Defaults"
+    resetBtn.Font = Enum.Font.GothamBold
+    resetBtn.TextSize = 16
+    resetBtn.BackgroundColor3 = Color3.fromRGB(124,58,237)
+    resetBtn.TextColor3 = Color3.fromRGB(255,255,255)
+    resetBtn.BorderSizePixel = 0
+    resetBtn.Parent = settingsTab
+
+    resetBtn.MouseButton1Click:Connect(function()
+        infoSettings = {
+            Username = true,
+            PlayerId = true,
+            DisplayName = false,
+            Team = false,
+            PlayerInfoDisplayEnabled = true,
+        }
+        refreshAllBillboards()
+        print("[quesadilla.dll] Settings reset to defaults")
+    end)
+end
+
+function showTabContent(tabName)
+    for name, frame in pairs(Sections) do
+        frame.Visible = (name == tabName)
+    end
+end
+
+-- ========== Animate Title (gradient) ==========
+local colors = {
+    Color3.fromRGB(124,58,237),
+    Color3.fromRGB(255,255,255)
+}
+
+local currentIndex = 1
+local animTween = nil
+local function animateTitle()
+    if animTween then
+        animTween:Cancel()
+    end
+    local nextIndex = currentIndex % #colors + 1
+    local tweenInfo = TweenInfo.new(8, Enum.EasingStyle.Linear)
+    animTween = TweenService:Create(Title, tweenInfo, {TextColor3 = colors[nextIndex]})
+    animTween:Play()
+    animTween.Completed:Connect(function()
+        currentIndex = nextIndex
+        animateTitle()
+    end)
+end
+animateTitle()
+
+-- ========== ESP thingy ==========
+
+local function createBox()
+    local box = Drawing.new("Square")
+    box.Color = Color3.fromRGB(124,58,237)
+    box.Thickness = 2
+    box.Filled = false
+    box.Transparency = 1
+    box.Visible = false
+    return box
+end
+
+local function createTracer()
+    local line = Drawing.new("Line")
+    line.Color = Color3.fromRGB(124,58,237)
+    line.Thickness = 1.5
+    line.Transparency = 1
+    line.Visible = false
+    return line
+end
+
+local function createNameTag()
+    local text = Drawing.new("Text")
+    text.Color = Color3.fromRGB(255, 255, 255)
+    text.Size = 14
+    text.Outline = true
+    text.OutlineColor = Color3.new(0,0,0)
+    text.Visible = false
+    return text
+end
+
+local function createHealthBar()
+    local bar = Drawing.new("Line")
+    bar.Color = Color3.fromRGB(0, 255, 0)
+    bar.Thickness = 3
+    bar.Visible = false
+    return bar
+end
+
+local function createDistanceText()
+    local text = Drawing.new("Text")
+    text.Color = Color3.fromRGB(255, 255, 255)
+    text.Size = 12
+    text.Outline = true
+    text.OutlineColor = Color3.new(0,0,0)
+    text.Visible = false
+    return text
+end
+
+local function createSkeleton()
+    local skeletonParts = {
+        "Head", "Torso", "RightUpperArm", "RightLowerArm", "RightHand", "LeftUpperArm", "LeftLowerArm", "LeftHand",
+        "RightUpperLeg", "RightLowerLeg", "RightFoot", "LeftUpperLeg", "LeftLowerLeg", "LeftFoot"
+    }
+    local lines = {}
+    for i, name in ipairs(skeletonParts) do
+        local line = Drawing.new("Line")
+        line.Color = Color3.fromRGB(255, 255, 255)
+        line.Thickness = 1
+        line.Visible = false
+        lines[name] = line
+    end
+    return lines
+end
+
+local function updateESP()
+    local camera = workspace.CurrentCamera
+    local screenSize = Vector2.new(camera.ViewportSize.X, camera.ViewportSize.Y)
+    
+    for player, box in pairs(ESPBoxes) do
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") or player == LocalPlayer then
+            box.Visible = false
+            ESPTracers[player].Visible = false
+            if ESPNames[player] then ESPNames[player].Visible = false end
+            if ESPHealths[player] then ESPHealths[player].Visible = false end
+            if ESPDistances[player] then ESPDistances[player].Visible = false end
+            if ESPSkeletons[player] then for _, line in pairs(ESPSkeletons[player]) do line.Visible = false end end
+            continue
+        end
+
+        local hrp = character.HumanoidRootPart
+        local head = character:FindFirstChild("Head")
+        
+        local pos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+        local headPos, headOnScreen = camera:WorldToViewportPoint(head.Position)
+        
+        if onScreen and headOnScreen then
+            local dist = (camera.CFrame.Position - hrp.Position).magnitude
+            local size = 150 / dist
+            
+            if BoxESPEnabled then
+                local boxWidth = size
+                local boxHeight = size * 1.5
+                box.Position = Vector2.new(pos.X - boxWidth/2, pos.Y - boxHeight/2)
+                box.Size = Vector2.new(boxWidth, boxHeight)
+                box.Visible = true
+            else
+                box.Visible = false
+            end
+            
+            if TracerESPEnabled then
+                local tracer = ESPTracers[player]
+                tracer.From = Vector2.new(screenSize.X/2, screenSize.Y)
+                tracer.To = Vector2.new(pos.X, pos.Y)
+                tracer.Visible = true
+            else
+                ESPTracers[player].Visible = false
+            end
+            
+            if NameTagESPEnabled then
+                local nameText = ESPNames[player]
+                nameText.Text = player.Name
+                nameText.Position = Vector2.new(headPos.X - nameText.TextBounds.X/2, headPos.Y - (size/2 + 20))
+                nameText.Visible = true
+            else
+                if ESPNames[player] then ESPNames[player].Visible = false end
+            end
+
+            if SkeletonESPEnabled then
+                local skeletonLines = ESPSkeletons[player]
+                local torso = character:FindFirstChild("Torso")
+                if torso then
+                    local hrpWorld, hrpOnScreen = camera:WorldToViewportPoint(hrp.Position)
+                    local neckWorld, neckOnScreen = camera:WorldToViewportPoint(head.CFrame.Position + Vector3.new(0,-1.5,0))
+                    local torsoWorld, torsoOnScreen = camera:WorldToViewportPoint(torso.CFrame.Position)
+                    
+                    if torsoOnScreen and neckOnScreen then
+                        skeletonLines.Torso.From = Vector2.new(neckWorld.X, neckWorld.Y)
+                        skeletonLines.Torso.To = Vector2.new(torsoWorld.X, torsoWorld.Y)
+                        skeletonLines.Torso.Visible = true
+                    end
+                end
+            else
+                if ESPSkeletons[player] then for _, line in pairs(ESPSkeletons[player]) do line.Visible = false end end
+            end
+
+            if HealthESPEnabled then
+                local healthBar = ESPHealths[player]
+                local humanoid = character:FindFirstChildOfClass("Humanoid")
+                if humanoid then
+                    local healthRatio = humanoid.Health / humanoid.MaxHealth
+                    healthBar.Color = Color3.fromHSV(healthRatio * 0.35, 1, 1)
+                    healthBar.From = Vector2.new(pos.X - size/2, pos.Y + size*0.75)
+                    healthBar.To = Vector2.new(pos.X - size/2 + (size * healthRatio), pos.Y + size*0.75)
+                    healthBar.Visible = true
+                end
+            else
+                if ESPHealths[player] then ESPHealths[player].Visible = false end
+            end
+
+            if DistanceESPEnabled then
+                local distanceText = ESPDistances[player]
+                distanceText.Text = tostring(math.floor(dist)).."m"
+                distanceText.Position = Vector2.new(headPos.X - distanceText.TextBounds.X/2, headPos.Y + (size/2 + 5))
+                distanceText.Visible = true
+            else
+                if ESPDistances[player] then ESPDistances[player].Visible = false end
+            end
+        else
+            box.Visible = false
+            ESPTracers[player].Visible = false
+            if ESPNames[player] then ESPNames[player].Visible = false end
+            if ESPHealths[player] then ESPHealths[player].Visible = false end
+            if ESPDistances[player] then ESPDistances[player].Visible = false end
+            if ESPSkeletons[player] then for _, line in pairs(ESPSkeletons[player]) do line.Visible = false end end
+        end
+    end
+end
+
+local function setupESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        ESPBoxes[player] = createBox()
+        ESPTracers[player] = createTracer()
+        ESPNames[player] = createNameTag()
+        ESPHealths[player] = createHealthBar()
+        ESPDistances[player] = createDistanceText()
+        ESPSkeletons[player] = createSkeleton()
+    end
+end
+
+Players.PlayerAdded:Connect(function(player)
+    ESPBoxes[player] = createBox()
+    ESPTracers[player] = createTracer()
+    ESPNames[player] = createNameTag()
+    ESPHealths[player] = createHealthBar()
+    ESPDistances[player] = createDistanceText()
+    ESPSkeletons[player] = createSkeleton()
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    if ESPBoxes[player] then ESPBoxes[player]:Remove(); ESPBoxes[player] = nil end
+    if ESPTracers[player] then ESPTracers[player]:Remove(); ESPTracers[player] = nil end
+    if ESPNames[player] then ESPNames[player]:Remove(); ESPNames[player] = nil end
+    if ESPHealths[player] then ESPHealths[player]:Remove(); ESPHealths[player] = nil end
+    if ESPDistances[player] then ESPDistances[player]:Remove(); ESPDistances[player] = nil end
+    if ESPSkeletons[player] then for _, line in pairs(ESPSkeletons[player]) do line:Remove() end; ESPSkeletons[player] = nil end
+end)
+
+local function updatePlayer()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    
+    if GodModeEnabled then
+        humanoid.Health = humanoid.MaxHealth
+    end
+
+    if FlyEnabled then
+        humanoid.PlatformStand = true
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, -flySpeed/60)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, 0, flySpeed/60)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(-flySpeed/60, 0, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(flySpeed/60, 0, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, -flySpeed/60, 0)
+        end
+        if UserInputService:IsKeyDown(Enum.KeyCode.E) then
+            hrp.CFrame = hrp.CFrame * CFrame.new(0, flySpeed/60, 0)
+        end
+    else
+        humanoid.PlatformStand = false
+    end
+end
+
+
+---
+-- NEW FEATURE: Active Mods Display
+
+local ActiveModsPanel = Instance.new("Frame")
+ActiveModsPanel.Name = "ActiveModsPanel"
+ActiveModsPanel.Size = UDim2.new(0, 150, 0, 0) -- Size will be updated by the list layout
+ActiveModsPanel.Position = UDim2.new(1, -160, 0.1, 0)
+ActiveModsPanel.BackgroundColor3 = Color3.fromRGB(20,20,20)
+ActiveModsPanel.BackgroundTransparency = 0.5
+ActiveModsPanel.BorderSizePixel = 0
+ActiveModsPanel.Visible = ActiveModsDisplayEnabled
+ActiveModsPanel.Parent = ScreenGui
+
+local ActiveModsList = Instance.new("UIListLayout")
+ActiveModsList.FillDirection = Enum.FillDirection.Vertical
+ActiveModsList.Padding = UDim.new(0, 5)
+ActiveModsList.HorizontalAlignment = Enum.HorizontalAlignment.Right
+ActiveModsList.Parent = ActiveModsPanel
+
+local function updateActiveModsDisplay()
+    if not ActiveModsDisplayEnabled then
+        ActiveModsPanel.Visible = false
+        return
+    end
+
+    ActiveModsPanel.Visible = true
+
+    -- Clear old list
+    for _, child in ipairs(ActiveModsPanel:GetChildren()) do
+        if child:IsA("TextLabel") then
+            child:Destroy()
+        end
+    end
+
+    local activeMods = {}
+    if BoxESPEnabled then table.insert(activeMods, "ESP") end
+    if FlyEnabled then table.insert(activeMods, "Fly") end
+    if GodModeEnabled then table.insert(activeMods, "God Mode") end
+    if _G.InfiniteJumpEnabled then table.insert(activeMods, "Infinite Jump") end
+
+    -- Add new labels
+    local totalHeight = 0
+    for _, modName in ipairs(activeMods) do
+        local label = Instance.new("TextLabel")
+        label.Text = modName
+        label.Size = UDim2.new(1, 0, 0, 20)
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 16
+        label.TextXAlignment = Enum.TextXAlignment.Right
+        label.TextColor3 = Color3.fromRGB(255,255,255)
+        label.BackgroundTransparency = 1
+        label.Parent = ActiveModsPanel
+        totalHeight = totalHeight + 25 -- label height + padding
+    end
+
+    ActiveModsPanel.Size = UDim2.new(0, 150, 0, totalHeight + 5) -- Adjust panel height
+end
+
+
+-- Run update loops
+RunService.RenderStepped:Connect(updateESP)
+RunService.RenderStepped:Connect(updatePlayer)
+RunService.RenderStepped:Connect(updateActiveModsDisplay)
+
+-- ========== Initialize Menu ==========
+
+buildVisionTab()
+buildPlayerTab()
+buildWorldTab()
+buildSettingsTab()
+
+Tabs.Vision.BackgroundColor3 = Color3.fromRGB(124,58,237)
+Tabs.Vision.TextColor3 = Color3.fromRGB(255,255,255)
+SelectedTab = "Vision"
+showTabContent("Vision")
+
+infoSettings.PlayerInfoDisplayEnabled = true
+refreshAllBillboards()
