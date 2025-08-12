@@ -898,7 +898,6 @@ local function updatePlayer()
 end
 
 
----
 -- NEW FEATURE: Active Mods Display
 
 local ActiveModsPanel = Instance.new("Frame")
