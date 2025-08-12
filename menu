@@ -1,0 +1,273 @@
+--[[
+	Public Mod Menu
+	This script creates a custom UI menu for Roblox that is visible and
+	usable by all players.
+	This version is based on a new design provided by the user, featuring
+	a clean, modern aesthetic with a different layout.
+	The menu retains its key functionality, including animations and a
+	toggle keybind.
+]]
+
+-- Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Main UI setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "IntellectUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+
+-- The main container frame for the entire menu.
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 500, 0, 450)
+MainFrame.Position = UDim2.new(0.5, -250, 0.5, -225)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = true
+
+-- Add a keybind to toggle the UI.
+UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+	if input.KeyCode == Enum.KeyCode.Tab and not gameProcessedEvent then
+		MainFrame.Visible = not MainFrame.Visible
+	end
+end)
+
+-- Add rounded corners to the main frame
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 8)
+corner.Parent = MainFrame
+
+-- Top bar for title and tabs
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BackgroundTransparency = 1
+TopBar.Parent = MainFrame
+
+-- Title label
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Position = UDim2.new(0, 10, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "quesadillas menu"
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Main content area, below the title bar.
+local ContentFrame = Instance.new("Frame")
+ContentFrame.Name = "ContentFrame"
+ContentFrame.Size = UDim2.new(1, -20, 1, -50)
+ContentFrame.Position = UDim2.new(0, 10, 0, 45)
+ContentFrame.BackgroundTransparency = 1
+ContentFrame.Parent = MainFrame
+
+local UIGridLayout = Instance.new("UIGridLayout")
+UIGridLayout.CellSize = UDim2.new(0.5, -5, 1, 0)
+UIGridLayout.CellPadding = UDim2.new(0, 5, 0, 0)
+UIGridLayout.FillDirection = Enum.FillDirection.Horizontal
+UIGridLayout.Parent = ContentFrame
+
+local LeftPanel = Instance.new("Frame")
+LeftPanel.Name = "LeftPanel"
+LeftPanel.Size = UDim2.new(0.5, -5, 1, 0)
+LeftPanel.BackgroundTransparency = 1
+LeftPanel.Parent = ContentFrame
+
+local RightPanel = Instance.new("Frame")
+RightPanel.Name = "RightPanel"
+RightPanel.Size = UDim2.new(0.5, -5, 1, 0)
+RightPanel.BackgroundTransparency = 1
+RightPanel.Parent = ContentFrame
+
+-- Add UIListLayouts to the panels to automatically organize content
+local listLayoutLeft = Instance.new("UIListLayout")
+listLayoutLeft.Name = "ListLayoutLeft"
+listLayoutLeft.FillDirection = Enum.FillDirection.Vertical
+listLayoutLeft.Padding = UDim.new(0, 10)
+listLayoutLeft.Parent = LeftPanel
+
+local listLayoutRight = Instance.new("UIListLayout")
+listLayoutRight.Name = "ListLayoutRight"
+listLayoutRight.FillDirection = Enum.FillDirection.Vertical
+listLayoutRight.Padding = UDim.new(0, 10)
+listLayoutRight.Parent = RightPanel
+
+-- Function to create a section
+local function createSection(parent, titleText)
+	local Section = Instance.new("Frame")
+	Section.Size = UDim2.new(1, 0, 0, 100)
+	Section.BackgroundTransparency = 1
+	Section.Parent = parent
+
+	local TitleLabel = Instance.new("TextLabel")
+	TitleLabel.Size = UDim2.new(1, 0, 0, 20)
+	TitleLabel.BackgroundTransparency = 1
+	TitleLabel.Text = titleText
+	TitleLabel.Font = Enum.Font.GothamBold
+	TitleLabel.TextSize = 14
+	TitleLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	TitleLabel.Parent = Section
+
+	local listLayout = Instance.new("UIListLayout")
+	listLayout.FillDirection = Enum.FillDirection.Vertical
+	listLayout.Padding = UDim.new(0, 5)
+	listLayout.Parent = Section
+
+	return Section
+end
+
+-- Function to create a checkbox with animations
+local function createCheckbox(parent, labelText)
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1, 0, 0, 20)
+	Button.BackgroundTransparency = 1
+	Button.Text = ""
+	Button.Parent = parent
+
+	local Box = Instance.new("Frame")
+	Box.Size = UDim2.new(0, 16, 0, 16)
+	Box.Position = UDim2.new(0, 0, 0.5, -8)
+	Box.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	Box.BorderColor3 = Color3.fromRGB(70, 70, 70)
+	Box.Parent = Button
+	
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 4)
+	corner.Parent = Box
+
+	local Check = Instance.new("Frame")
+	Check.Size = UDim2.new(1, -4, 1, -4)
+	Check.Position = UDim2.new(0, 2, 0, 2)
+	Check.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	Check.Visible = false
+	Check.Parent = Box
+	
+	local checkCorner = Instance.new("UICorner")
+	checkCorner.CornerRadius = UDim.new(0, 2)
+	checkCorner.Parent = Check
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, -24, 1, 0)
+	Label.Position = UDim2.new(0, 24, 0, 0)
+	Label.BackgroundTransparency = 1
+	Label.Text = labelText
+	Label.Font = Enum.Font.Gotham
+	Label.TextSize = 14
+	Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Button
+
+	Button.MouseButton1Click:Connect(function()
+		Check.Visible = not Check.Visible
+	end)
+end
+
+-- Function to create a slider with animations
+local function createSlider(parent, labelText, min, max, default)
+	local Container = Instance.new("Frame")
+	Container.Size = UDim2.new(1, 0, 0, 40)
+	Container.BackgroundTransparency = 1
+	Container.Parent = parent
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, 0, 0, 20)
+	Label.BackgroundTransparency = 1
+	Label.Text = labelText
+	Label.Font = Enum.Font.Gotham
+	Label.TextSize = 14
+	Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Container
+
+	local SliderBar = Instance.new("Frame")
+	SliderBar.Size = UDim2.new(1, 0, 0, 6)
+	SliderBar.Position = UDim2.new(0, 0, 0, 24)
+	SliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	SliderBar.BorderSizePixel = 0
+	SliderBar.Parent = Container
+
+	local Fill = Instance.new("Frame")
+	Fill.Name = "Fill"
+	Fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+	Fill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	Fill.BorderSizePixel = 0
+	Fill.Parent = SliderBar
+	
+	local Handle = Instance.new("Frame")
+	Handle.Name = "Handle"
+	Handle.Size = UDim2.new(0, 10, 0, 10)
+	Handle.Position = UDim2.new((default - min) / (max - min), -5, 0.5, -5)
+	Handle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	Handle.BorderSizePixel = 0
+	Handle.Parent = SliderBar
+
+	local isDragging = false
+	local function updateSlider(input)
+		local x = input.Position.X - SliderBar.AbsolutePosition.X
+		local width = SliderBar.AbsoluteSize.X
+		local percentage = math.clamp(x / width, 0, 1)
+
+		local currentValue = min + percentage * (max - min)
+		
+		local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+		TweenService:Create(Fill, tweenInfo, {Size = UDim2.new(percentage, 0, 1, 0)}):Play()
+		TweenService:Create(Handle, tweenInfo, {Position = UDim2.new(percentage, -5, 0.5, -5)}):Play()
+
+		-- The logic to use the new value would go here
+		print(labelText .. " value is now " .. tostring(math.floor(currentValue)))
+	end
+
+	Handle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = true
+			updateSlider(input)
+		end
+	end)
+
+	SliderBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = true
+			updateSlider(input)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if isDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			updateSlider(input)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			isDragging = false
+		end
+	end)
+end
+
+-- Left Panel
+local OversyncSection = createSection(LeftPanel, "Oversyncing")
+createCheckbox(OversyncSection, "Players Oversync")
+createCheckbox(OversyncSection, "Players Rotation")
+
+local AutoBranchSection = createSection(LeftPanel, "AutoBranch")
+createCheckbox(AutoBranchSection, "Auto Branch")
+
+-- Right Panel
+local SetsSection = createSection(RightPanel, "Sets")
+createSlider(SetsSection, "Wall Pull Power", 0, 10, 0)
+createSlider(SetsSection, "AutoBranch Speed", 0, 10, 1)
+createSlider(SetsSection, "AutoBranch Hand Distance", 0, 10, 1)
+createSlider(SetsSection, "AutoBranch Hand Smoothness", 0, 10, 1)
